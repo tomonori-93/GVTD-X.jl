@@ -1,12 +1,12 @@
 """
 Author: Satoki Tsujino
-Date: 2026/03/04
+Date: 2026/09/15
 """
 module GVTDX
 
 const lib = joinpath(@__DIR__, "..", "lib", "libGVTDX.so")
 
-export ParallaxCorrect, parallax_correct_core, tri_interpolation_2d, convert_Tbb2Zph
+export GVTDX_main, Retrieve_GVTDX, Retrieve_GVTD, Retrieve_GBVTD
 
 """
 """
@@ -46,15 +46,15 @@ end
 
 #-- 以下は c_interface からのラッパー関数
 
-function parallax_correct_core(lon_pix::Matrix{Float64},
-                               lat_pix::Matrix{Float64}, 
-                               h_pix::Matrix{Float64},
-                               re::Float64,
-                               rp::Float64,
-                               hsat::Float64,
-                               psat::Float64,
-                               lsat::Float64,
-                               missing_value::Float64)
+function GVTDX_main(lon_pix::Matrix{Float64},
+                    lat_pix::Matrix{Float64}, 
+                    h_pix::Matrix{Float64},
+                    re::Float64,
+                    rp::Float64,
+                    hsat::Float64,
+                    psat::Float64,
+                    lsat::Float64,
+                    missing_value::Float64)
 
     n, m = size(lon_pix)
 
@@ -75,13 +75,13 @@ function parallax_correct_core(lon_pix::Matrix{Float64},
 
 end
 
-function tri_interpolation_2d(x_in::Matrix{Float64},
-                              y_in::Matrix{Float64}, 
-                              iv::Matrix{Float64},
-                              ivad::Matrix{Float64},
-                              x_out::Vector{Float64},
-                              y_out::Vector{Float64},
-                              missing_value::Float64)
+function Retrieve_GVTDX(x_in::Matrix{Float64},
+                        y_in::Matrix{Float64}, 
+                        iv::Matrix{Float64},
+                        ivad::Matrix{Float64},
+                        x_out::Vector{Float64},
+                        y_out::Vector{Float64},
+                        missing_value::Float64)
 
     n, m = size(x_in)
     l = size(x_out)[1]
