@@ -1,30 +1,26 @@
-include("../src/JParallaxCorrect.jl")
-include("../src/wrap_netcdf.jl")
+include("../src/GVTDX.jl")
+include("../src/wrap_netcdf_GVTDX.jl")
 
 # For Himawari-8/9 satellite, a sample script of parallax correction
 using NCDatasets  # Reading NetCDF
 using DelimitedFiles
 using DataStructures: OrderedDict  # Creating NetCDF attributes
-using .JParallaxCorrect  # Parallax correction
-using .wrap_netcdf
+using .GVTDX  # GVTDX retrieval module
+using .wrap_netcdf_GVTDX
 
 #-- setting section
 infile_list = "input_files.txt"  # 1st column: NetCDF, 2nd column: Temperature vs height profile data (ASCII)
 hskip_zprof = 4  # array number to skip reading in the temp/height profile data
-tord = 2  # Column order of temperature in infile_list[2]
-zord = 1  # Column order of height in infile_list[2]
-read_vname = "tbb"
-height_vname = "gph"
-lon_vname = "longitude"
-lat_vname = "latitude"
+nrot = 3  # azimuthal wavenumber for retrieved rotating wind component
+read_vname = "dealiased_velocity"
+rad_vname = "radius"
+azi_vname = "azimuth"
+alt_vname = "altitude"
 _fillval_name = "_FillValue"
-rename = "equator_radius"
-rpname = "polar_radius"
-hsatname = "satellite_earth_center_distance"
-lsatname = "satellite_longitude"
-psatname = "satellite_latitude"
-dlon = 0.02  # Horizontal grid spacing [degree] for longitude
-dlat = 0.02  # Horizontal grid spacing [degree] for latitude
+lon_tc_name = "lon_tc"
+lat_tc_name = "lat_tc"
+lon_rdr_name = "lon_rdr"
+lat_rdr_name = "lat_rdr"
 #-----------------------
 
 d2r = π/180.0
@@ -36,52 +32,35 @@ nl = size(infiles)[1]
 
 # Start loop to read and perform parallax correction
 for i in 1:nl
-    local infile_nc, infile_zp = split(infiles[i])
-
-    # input temperature/height profiles
-    temperature_1d = Float64.(readdlm(infile_zp)[hskip_zprof+1:end,tord])
-    height_1d = Float64.(readdlm(infile_zp)[hskip_zprof+1:end,zord])
+    local infile_nc = split(infiles[i])
 
     # Input NetCDF satellite data
     local al = NCDataset(infile_nc,"r")
     println("Read : $infile_nc")
 
     # Set arrays and parameters for reading Himawari data
-    R_e = al[read_vname].attrib[rename] * 1.0e3  # km -> m
-    R_p = al[read_vname].attrib[rpname] * 1.0e3  # km -> m
-    h_sat = al[read_vname].attrib[hsatname] * 1.0e3  # km -> m
-    l_sat = al[read_vname].attrib[lsatname] * d2r  # degree -> radian
-    p_sat = al[read_vname].attrib[psatname] * d2r  # degree -> radian
+    lon_tc = al[lon_tc_name].var  # degrees
+    lat_tc = al[lat_tc_name].var  # degrees
+    lon_rdr = al[lon_rdr_name].var  # degrees
+    lat_rdr = al[lat_rdr_name].var  # degrees
     # In NCDatasets, _FillValue is forced to missing type in JuliaLang, so if set Float, you need it as follows.
     missing_value = al[read_vname].attrib[_fillval_name]
-    ncol, nlin = size(al[read_vname].var)
-    ds_val = fill(missing_value,ncol,nlin)  # NOTE: x,y
-    ds_gph = fill(missing_value,ncol,nlin)  # NOTE: x,y
-    ds_lon = fill(convert(Float64,missing_value),ncol,nlin)
-    ds_lat = fill(convert(Float64,missing_value),ncol,nlin)
+    nr, nt, nz = size(al[read_vname].var)
+    ds_val = fill(missing_value,nr,nt)  # NOTE: x,y
+    ds_rad = fill(convert(Float64,missing_value),nr)
+    ds_azi = fill(convert(Float64,missing_value),nt)
+    ds_alt = fill(convert(Float64,missing_value),nz)
 
     # Substitute NetCDF data into ds_{val,lon,lat}
     ds_val = map(x -> convert(Float64,x), al[read_vname].var)
-    ds_lon = map(x -> convert(Float64,x), al[lon_vname].var)
-    ds_lat = map(x -> convert(Float64,x), al[lat_vname].var)
+    ds_rad = map(x -> convert(Float64,x), al[rad_vname].var)
+    ds_azi = map(x -> convert(Float64,x), al[azi_vname].var)
+    ds_alt = map(x -> convert(Float64,x), al[alt_vname].var)
 
-    # Allocate horizontal grid for output file (lon_grid/lat_grid)
-    reshape_lon = reshape(ds_lon,(ncol * nlin,))  # temporary
-    reshape_lat = reshape(ds_lat,(ncol * nlin,))  # temporary
-    lonmin = minimum(reshape_lon)
-    lonmax = maximum(reshape_lon)
-    latmin = minimum(reshape_lat)
-    latmax = maximum(reshape_lat)
-    nlon = floor((lonmax - lonmin) / dlon) + 1
-    nlat = floor((latmax - latmin) / dlat) + 1
-    lon_grid = lonmin .+ dlon .* (Vector(1:nlon) .- 1)
-    lat_grid = latmin .+ dlat .* (Vector(1:nlat) .- 1)
-
-    # Convert Tbb to Geopotential height (Zph)
-    ds_gph = convert_Tbb2Zph(ds_val, temperature_1d, height_1d, missing_value)  # assuming ds_val = tbb
-
-    # Perform parallax correction and assign the corrected values to lon_grid/lat_grid
-    # lon/lat: [radian], gph: [m]
+    # Retrieve wind components from Doppler velocity
+    VTtot, VRtot, VRT0, VDR0, VRTn, VRRn = Retrieval_control(
+        aaa開発中
+    )
     gph_grid, val_grid = ParallaxCorrect(ds_lon.*d2r, ds_lat.*d2r, ds_gph, ds_val,
                             lon_grid.*d2r, lat_grid.*d2r, R_e, R_p, h_sat, p_sat, l_sat, missing_value)
 
@@ -90,8 +69,9 @@ for i in 1:nl
     gph_grid = Array{Real}(gph_grid)
     val_grid = Array{Real}(val_grid)
 
-    outfile = chopsuffix(infile_nc,".nc") * ".para.nc"
-    ncdump_parallax(outfile,String(infile_nc),lon_grid,lat_grid,gph_grid,val_grid,read_vname)
+    outfile = chopsuffix(infile_nc,".nc") * ".GVTDX.nc"
+    ncdump_gvtdx(outfile,String(infile_nc),ds_rad,ds_azi,VTtot,VRtot,VRT0,VDR0,VRTn,VRRn,
+                 Vra,Vra_ret,Vra_Er,Vra_Er_ret,missing_value)
 
     println("Output file: $outfile ...")
 

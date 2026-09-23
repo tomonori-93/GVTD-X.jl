@@ -2,7 +2,7 @@
 Author: Satoki Tsujino
 Date: 2026/09/14
 """
-module wrap_netcdf  # sub module for handling NetCDF
+module wrap_netcdf_gvtdx  # sub module for handling NetCDF
 # For Himawari-8/9 satellite, wrapper library
 using NCDatasets  # Reading NetCDF
 using DataStructures: OrderedDict  # Creating NetCDF attributes
