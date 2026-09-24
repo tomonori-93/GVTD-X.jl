@@ -1,5 +1,5 @@
 include("../src/GVTDX.jl")
-include("../src/wrap_netcdf_GVTDX.jl")
+include("./wrap_netcdf_GVTDX.jl")
 
 # For Himawari-8/9 satellite, a sample script of parallax correction
 using NCDatasets  # Reading NetCDF
