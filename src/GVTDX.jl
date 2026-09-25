@@ -4,7 +4,6 @@ Date: 2026/09/15
 """
 module GVTDX
 
-開発中
 const lib = joinpath(@__DIR__, "..", "lib", "libGVTDX.so")
 
 export Retrieval_velocity, Retrieve_velocity_GVTDX, Retrieve_velocity_GVTD, Retrieve_velocity_GBVTD
